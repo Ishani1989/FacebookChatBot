@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from flask import Flask, render_template, request, redirect, jsonify, \
-    url_for, flash, send_from_directory
+    url_for, flash
 from sqlalchemy import create_engine, asc
 from sqlalchemy.orm import sessionmaker
 from database_setup import Base, Cuisine, Dish, User
@@ -17,6 +17,12 @@ import json
 from flask import make_response
 import requests
 
+#for facebook bot
+from pymessenger import Bot
+
+PAGE_ACCESS_TOKEN = 'EAABh1nL6Q6UBANqX1HhvBBgVyIZBoTFeZC3VMZB7l51EXUpPNZBEnRjctupAy0v2YOA7QL8FgJyUA6ZB4w9BieAExsPYi6AkiW4yFh6DjEAe22ENqf2l4ryAudJUszdOoxO03lh6vpKImwIotZBPZBBZBuFbtZAf27lU0gUyWCQS1fGJeUjwuOUuU'
+
+bot = Bot(PAGE_ACCESS_TOKEN)
 # For debugging purpose
 # httplib2.debuglevel = 4
 
@@ -332,8 +338,41 @@ def webhook():
     data = request.get_json()
     print data
 
+    if data['object']=='page':
+        for entry in data['entry']:
+            for msg in entry['messaging']:
+                sender_id = msg['sender']['id']
+                recipient_id = msg['recipient']['id']
+                
+                if msg.get('message'):
+                    if 'text' in msg['message']:
+                        ourmsg = msg['message']['text']
+                    else:
+                        ourmsg = "no text to show"
 
+                    
+                    #Echo the message
+                    response = ourmsg
+    
+                    if str(ourmsg) == "cuisines":
+                        response = ""
+                        cuisine = session.query(Cuisine.name).all()
+                        for i in cuisine :
+                            response = response +str(i.name) + '\n'
 
+                    if 'Indian' in ourmsg or 'Mexican' in ourmsg or 'Thai' in ourmsg or 'Italian'\
+                    in ourmsg or 'Chinese' in ourmsg or 'Spanish' in ourmsg:
+                        
+                        cuisine = session.query(Cuisine).filter_by(name=ourmsg).one()
+                        dishes = session.query(Dish).filter_by(cuisine_id=cuisine.id).all()
+                        
+                        response = ""
+                        for i in dishes :
+                            response = response +str(i.name) + '\n'
+                    
+                    bot.send_text_message(sender_id, response)
+                    
+    return "ok", 200
 
 if __name__ == '__main__':
     handler = RotatingFileHandler('cuisinewise.log',
